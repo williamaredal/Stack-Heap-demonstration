@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  app_small_ram:
+    build: .
+    command: ["./myapp"]
+    mem_limit: 100m  # Set a small RAM limit (e.g., 100 MB)
+    
+  app_large_ram:
+    build: .
+    command: ["./myapp"]
+    mem_limit: 1g   # Set a large RAM limit (e.g., 1 GB)
+
