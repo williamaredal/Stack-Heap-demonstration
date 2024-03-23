@@ -6,10 +6,44 @@ import (
 	"log"
 	"math"
 	"os"
+	"reflect"
 	"runtime"
 	"runtime/debug"
+	"strconv"
 	"time"
+
+	"github.com/go-echarts/go-echarts/v2/charts"
+	"github.com/go-echarts/go-echarts/v2/opts"
 )
+
+// Struct used for loading and plotting of average stats
+type MemStatsAvg struct {
+	N            int
+	Time         float64
+	Alloc        float64
+	TotalAlloc   float64
+	Sys          float64
+	Lookups      float64
+	Mallocs      float64
+	Frees        float64
+	HeapAlloc    float64
+	HeapSys      float64
+	HeapIdle     float64
+	HeapInuse    float64
+	HeapReleased float64
+	HeapObjects  float64
+	StackInuse   float64
+	StackSys     float64
+	MSpanInuse   float64
+	MSpanSys     float64
+	MCacheInuse  float64
+	MCacheSys    float64
+	BuckHashSys  float64
+	GCSys        float64
+	OtherSys     float64
+	NextGC       float64
+	LastGC       float64
+}
 
 func recursiveFunction(count int) int {
 	if count <= 0 {
@@ -112,8 +146,8 @@ func main() {
 		// Number of times to test any given element depth
 		for test_i := 0; test_i < 10; test_i++ {
 			startTime := time.Now()
-			//result := recursiveFunction(int(n))
-			result := loopFunction(n)
+			result := recursiveFunction(int(n))
+			//result := loopFunction(n)
 			elapsedTime := time.Since(startTime)
 
 			// Call the function to write mem stats to CSV
@@ -130,4 +164,72 @@ func main() {
 		}
 
 	}
+
+	// After running the tests, data is loaded and plotted
+
+	file, err := os.Open("memstats.csv")
+	if err != nil {
+		log.Fatalf("Failed to open file: %s", err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		log.Fatalf("Failed to read CSV file: %s", err)
+	}
+
+	records = records[1:] // Skip the header
+
+	memStats := make(map[int][]MemStatsAvg)
+	for _, record := range records {
+		n, err := strconv.Atoi(record[0])
+		if err != nil {
+			log.Fatalf("Failed to convert N to integer: %s", err)
+		}
+
+		var stats MemStatsAvg
+		stats.N = n
+		if len(record) >= 24 {
+			for i, val := range record[1:] {
+				floatVal, _ := strconv.ParseFloat(val, 64)
+				reflect.ValueOf(&stats).Elem().Field(i + 1).SetFloat(floatVal)
+			}
+		} else {
+			log.Printf("Skipping record due to insufficient fields: %v", record)
+		}
+		memStats[n] = append(memStats[n], stats)
+	}
+
+	bar3D := charts.NewBar3D()
+	bar3D.SetGlobalOptions(
+		charts.WithTitleOpts(opts.Title{Title: "Memory Stats"}),
+		charts.WithXAxis3DOpts(opts.XAxis3D{Name: "N"}),
+		charts.WithYAxis3DOpts(opts.YAxis3D{Name: "Stat"}),
+		charts.WithZAxis3DOpts(opts.ZAxis3D{Name: "Value"}),
+	)
+
+	// Initialize a map to hold all data points
+	dataMap := make(map[string][]opts.Chart3DData)
+
+	// Accumulate data points
+	for _, statsList := range memStats {
+		for _, stats := range statsList {
+			v := reflect.ValueOf(stats)
+			typeOfS := v.Type()
+			for i := 1; i < v.NumField(); i++ {
+				fieldName := typeOfS.Field(i).Name
+				dataMap[fieldName] = append(dataMap[fieldName], opts.Chart3DData{Value: []interface{}{stats.N, i, v.Field(i).Interface()}})
+			}
+		}
+	}
+
+	// Add series for each stat
+	for statName, dataPoints := range dataMap {
+		bar3D.AddSeries(statName, dataPoints)
+	}
+
+	f, _ := os.Create("bar3d.html")
+	bar3D.Render(f)
+
 }
