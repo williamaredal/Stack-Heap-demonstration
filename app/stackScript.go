@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"net/http"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -101,19 +100,6 @@ func writeMemStatsToCSV(writeCount int, n int, elapsedTime int64) {
 func main() {
 	// Turns off automatic garbage collection before tests
 	debug.SetGCPercent(-1)
-
-	// Starts the profiling
-	log.Println("Profile being served: http://localhost:6060/debug/pprof/")
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
-
-	/*
-		if len(os.Args) < 2 {
-			fmt.Println("Please provide a depth argument")
-			return
-		}
-	*/
 
 	// Write count to know if headers should be written, or rows appended
 	writeCounter := 0
