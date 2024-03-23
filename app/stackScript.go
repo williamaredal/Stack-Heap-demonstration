@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"runtime/debug"
 	"time"
 )
 
@@ -27,9 +28,16 @@ func loopFunction(count int) int {
 	return sum
 }
 
-func writeMemStatsToCSV(writeCount int, elapsedTime int) {
+func writeMemStatsToCSV(writeCount int, n int, elapsedTime int64) {
 	var file *os.File
 	var err error
+	headers := []string{
+		"N", "Time", "Alloc", "TotalAlloc", "Sys", "Lookups", "Mallocs", "Frees",
+		"HeapAlloc", "HeapSys", "HeapIdle", "HeapInuse", "HeapReleased",
+		"HeapObjects", "StackInuse", "StackSys", "MSpanInuse", "MSpanSys",
+		"MCacheInuse", "MCacheSys", "BuckHashSys", "GCSys", "OtherSys",
+		"NextGC", "LastGC",
+	}
 
 	if writeCount == 0 {
 		// Create a new file or truncate an existing one
@@ -47,14 +55,6 @@ func writeMemStatsToCSV(writeCount int, elapsedTime int) {
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
-	headers := []string{
-		"N", "Time", "Alloc", "TotalAlloc", "Sys", "Lookups", "Mallocs", "Frees",
-		"HeapAlloc", "HeapSys", "HeapIdle", "HeapInuse", "HeapReleased",
-		"HeapObjects", "StackInuse", "StackSys", "MSpanInuse", "MSpanSys",
-		"MCacheInuse", "MCacheSys", "BuckHashSys", "GCSys", "OtherSys",
-		"NextGC", "LastGC",
-	}
-
 	if writeCount == 0 {
 		// Write headers only if it's a new file
 		if err := writer.Write(headers); err != nil {
@@ -64,10 +64,9 @@ func writeMemStatsToCSV(writeCount int, elapsedTime int) {
 
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	n := 10 * math.Pow(10, float64(writeCount))
 
 	stats := []string{
-		fmt.Sprintf("%d", int(n)),
+		fmt.Sprintf("%d", n),
 		fmt.Sprintf("%d", elapsedTime),
 		fmt.Sprintf("%d", m.Alloc),
 		fmt.Sprintf("%d", m.TotalAlloc),
@@ -100,6 +99,9 @@ func writeMemStatsToCSV(writeCount int, elapsedTime int) {
 }
 
 func main() {
+	// Turns off automatic garbage collection before tests
+	debug.SetGCPercent(-1)
+
 	// Starts the profiling
 	log.Println("Profile being served: http://localhost:6060/debug/pprof/")
 	go func() {
@@ -113,26 +115,32 @@ func main() {
 		}
 	*/
 
+	// Write count to know if headers should be written, or rows appended
+	writeCounter := 0
+
 	// Element depth to test
 	for d := 0; d < 7; d++ {
 		// Run the function with n elements
-		n := 10 * math.Pow(10, float64(d))
+		n := int(10 * math.Pow(10, float64(d)))
 
 		// Number of times to test any given element depth
 		for test_i := 0; test_i < 10; test_i++ {
 			startTime := time.Now()
 			//result := recursiveFunction(int(n))
-			result := loopFunction(int(n))
+			result := loopFunction(n)
 			elapsedTime := time.Since(startTime)
 
 			// Call the function to write mem stats to CSV
-			writeMemStatsToCSV(d, int(elapsedTime))
+			writeMemStatsToCSV(writeCounter, n, elapsedTime.Milliseconds())
 
 			// Displays the results
 			fmt.Printf("Current runtime: %dms\nRecursive depth: %d\nFunction result: %d\n\n", elapsedTime, int(n), result)
 
 			// Runs garbage collection to clear mem-usage before next run
 			runtime.GC()
+
+			// Increments writes after test is finished
+			writeCounter++
 		}
 
 	}
