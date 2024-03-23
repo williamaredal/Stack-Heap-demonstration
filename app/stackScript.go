@@ -45,6 +45,136 @@ type MemStatsAvg struct {
 	LastGC       float64
 }
 
+func plotStatsBar3D() {
+	file, err := os.Open("memstats.csv")
+	if err != nil {
+		log.Fatalf("Failed to open file: %s", err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		log.Fatalf("Failed to read CSV file: %s", err)
+	}
+
+	records = records[1:] // Skip the header
+
+	memStats := make(map[int][]MemStatsAvg)
+	for _, record := range records {
+		n, err := strconv.Atoi(record[0])
+		if err != nil {
+			log.Fatalf("Failed to convert N to integer: %s", err)
+		}
+
+		var stats MemStatsAvg
+		stats.N = n
+		if len(record) >= 24 {
+			for i, val := range record[1:] {
+				floatVal, _ := strconv.ParseFloat(val, 64)
+				reflect.ValueOf(&stats).Elem().Field(i + 1).SetFloat(floatVal)
+			}
+		} else {
+			log.Printf("Skipping record due to insufficient fields: %v", record)
+		}
+		memStats[n] = append(memStats[n], stats)
+	}
+
+	bar3D := charts.NewBar3D()
+	bar3D.SetGlobalOptions(
+		charts.WithTitleOpts(opts.Title{Title: "Memory Stats"}),
+		charts.WithXAxis3DOpts(opts.XAxis3D{Name: "N"}),
+		charts.WithYAxis3DOpts(opts.YAxis3D{Name: "Stat"}),
+		charts.WithZAxis3DOpts(opts.ZAxis3D{Name: "Value"}),
+	)
+
+	// Initialize a map to hold all data points
+	dataMap := make(map[string][]opts.Chart3DData)
+
+	// Accumulate data points
+	for _, statsList := range memStats {
+		for _, stats := range statsList {
+			v := reflect.ValueOf(stats)
+			typeOfS := v.Type()
+			for i := 1; i < v.NumField(); i++ {
+				fieldName := typeOfS.Field(i).Name
+				dataMap[fieldName] = append(dataMap[fieldName], opts.Chart3DData{Value: []interface{}{stats.N, i, v.Field(i).Interface()}})
+			}
+		}
+	}
+
+	// Add series for each stat
+	for statName, dataPoints := range dataMap {
+		bar3D.AddSeries(statName, dataPoints)
+	}
+
+	f, _ := os.Create("bar3d.html")
+	bar3D.Render(f)
+
+}
+
+func plotStatsLine() {
+	file, err := os.Open("memstats.csv")
+	if err != nil {
+		log.Fatalf("Failed to open file: %s", err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		log.Fatalf("Failed to read CSV file: %s", err)
+	}
+
+	records = records[1:] // Skip the header
+
+	// Using a map where each stat name points to a slice of LineData, holding the N value and the stat value.
+	memStats := make(map[string][]opts.LineData)
+	for _, record := range records {
+		n, err := strconv.Atoi(record[0])
+		if err != nil {
+			log.Fatalf("Failed to convert N to integer: %s", err)
+		}
+
+		var stats MemStatsAvg
+		stats.N = n
+		if len(record) >= 24 {
+			for i, val := range record[1:] {
+				floatVal, err := strconv.ParseFloat(val, 64)
+				if err != nil {
+					log.Fatalf("Failed to convert string to float: %s", err)
+				}
+				reflect.ValueOf(&stats).Elem().Field(i + 1).SetFloat(floatVal)
+			}
+		} else {
+			log.Printf("Skipping record due to insufficient fields: %v", record)
+		}
+
+		v := reflect.ValueOf(stats)
+		typeOfS := v.Type()
+		for i := 1; i < v.NumField(); i++ {
+			fieldName := typeOfS.Field(i).Name
+			memStats[fieldName] = append(memStats[fieldName], opts.LineData{Value: []interface{}{n, v.Field(i).Interface()}})
+		}
+	}
+
+	line := charts.NewLine()
+	line.SetGlobalOptions(
+		charts.WithTitleOpts(opts.Title{Title: "Memory Stats"}),
+		charts.WithXAxisOpts(opts.XAxis{Name: "N"}),
+		charts.WithYAxisOpts(opts.YAxis{Name: "Value"}),
+	)
+
+	for statName, dataPoints := range memStats {
+		line.AddSeries(statName, dataPoints)
+	}
+
+	f, _ := os.Create("line_chart.html")
+	if err := line.Render(f); err != nil {
+		log.Fatalf("Failed to render chart: %s", err)
+	}
+}
+
 func recursiveFunction(count int) int {
 	if count <= 0 {
 		return 0
@@ -165,71 +295,9 @@ func main() {
 
 	}
 
+	debug.SetGCPercent(1)
 	// After running the tests, data is loaded and plotted
-
-	file, err := os.Open("memstats.csv")
-	if err != nil {
-		log.Fatalf("Failed to open file: %s", err)
-	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-	records, err := reader.ReadAll()
-	if err != nil {
-		log.Fatalf("Failed to read CSV file: %s", err)
-	}
-
-	records = records[1:] // Skip the header
-
-	memStats := make(map[int][]MemStatsAvg)
-	for _, record := range records {
-		n, err := strconv.Atoi(record[0])
-		if err != nil {
-			log.Fatalf("Failed to convert N to integer: %s", err)
-		}
-
-		var stats MemStatsAvg
-		stats.N = n
-		if len(record) >= 24 {
-			for i, val := range record[1:] {
-				floatVal, _ := strconv.ParseFloat(val, 64)
-				reflect.ValueOf(&stats).Elem().Field(i + 1).SetFloat(floatVal)
-			}
-		} else {
-			log.Printf("Skipping record due to insufficient fields: %v", record)
-		}
-		memStats[n] = append(memStats[n], stats)
-	}
-
-	bar3D := charts.NewBar3D()
-	bar3D.SetGlobalOptions(
-		charts.WithTitleOpts(opts.Title{Title: "Memory Stats"}),
-		charts.WithXAxis3DOpts(opts.XAxis3D{Name: "N"}),
-		charts.WithYAxis3DOpts(opts.YAxis3D{Name: "Stat"}),
-		charts.WithZAxis3DOpts(opts.ZAxis3D{Name: "Value"}),
-	)
-
-	// Initialize a map to hold all data points
-	dataMap := make(map[string][]opts.Chart3DData)
-
-	// Accumulate data points
-	for _, statsList := range memStats {
-		for _, stats := range statsList {
-			v := reflect.ValueOf(stats)
-			typeOfS := v.Type()
-			for i := 1; i < v.NumField(); i++ {
-				fieldName := typeOfS.Field(i).Name
-				dataMap[fieldName] = append(dataMap[fieldName], opts.Chart3DData{Value: []interface{}{stats.N, i, v.Field(i).Interface()}})
-			}
-		}
-	}
-
-	// Add series for each stat
-	for statName, dataPoints := range dataMap {
-		bar3D.AddSeries(statName, dataPoints)
-	}
-
-	f, _ := os.Create("bar3d.html")
-	bar3D.Render(f)
+	//plotStatsBar3D()
+	plotStatsLine()
 
 }
