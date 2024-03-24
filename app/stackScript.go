@@ -60,56 +60,114 @@ func plotStatsBar3D() {
 
 	records = records[1:] // Skip the header
 
-	memStats := make(map[int][]MemStatsAvg)
+	var memStatsList []MemStatsAvg
 	for _, record := range records {
-		n, err := strconv.Atoi(record[0])
-		if err != nil {
-			log.Fatalf("Failed to convert N to integer: %s", err)
-		}
+		var memStats MemStatsAvg
+		memStats.N, _ = strconv.Atoi(record[0])
+		memStats.Time, _ = strconv.ParseFloat(record[1], 64)
+		memStats.Alloc, _ = strconv.ParseFloat(record[2], 64)
+		memStats.TotalAlloc, _ = strconv.ParseFloat(record[3], 64)
+		memStats.Sys, _ = strconv.ParseFloat(record[4], 64)
+		memStats.Lookups, _ = strconv.ParseFloat(record[5], 64)
+		memStats.Mallocs, _ = strconv.ParseFloat(record[6], 64)
+		memStats.Frees, _ = strconv.ParseFloat(record[7], 64)
+		memStats.HeapAlloc, _ = strconv.ParseFloat(record[8], 64)
+		memStats.HeapSys, _ = strconv.ParseFloat(record[9], 64)
+		memStats.HeapIdle, _ = strconv.ParseFloat(record[10], 64)
+		memStats.HeapInuse, _ = strconv.ParseFloat(record[11], 64)
+		memStats.HeapReleased, _ = strconv.ParseFloat(record[12], 64)
+		memStats.HeapObjects, _ = strconv.ParseFloat(record[13], 64)
+		memStats.StackInuse, _ = strconv.ParseFloat(record[14], 64)
+		memStats.StackSys, _ = strconv.ParseFloat(record[15], 64)
+		memStats.MSpanInuse, _ = strconv.ParseFloat(record[16], 64)
+		memStats.MSpanSys, _ = strconv.ParseFloat(record[17], 64)
+		memStats.MCacheInuse, _ = strconv.ParseFloat(record[18], 64)
+		memStats.MCacheSys, _ = strconv.ParseFloat(record[19], 64)
+		memStats.BuckHashSys, _ = strconv.ParseFloat(record[20], 64)
+		memStats.GCSys, _ = strconv.ParseFloat(record[21], 64)
+		memStats.OtherSys, _ = strconv.ParseFloat(record[22], 64)
+		memStats.NextGC, _ = strconv.ParseFloat(record[23], 64)
+		memStats.LastGC, _ = strconv.ParseFloat(record[24], 64)
 
-		var stats MemStatsAvg
-		stats.N = n
-		if len(record) >= 24 {
-			for i, val := range record[1:] {
-				floatVal, _ := strconv.ParseFloat(val, 64)
-				reflect.ValueOf(&stats).Elem().Field(i + 1).SetFloat(floatVal)
-			}
-		} else {
-			log.Printf("Skipping record due to insufficient fields: %v", record)
-		}
-		memStats[n] = append(memStats[n], stats)
+		memStatsList = append(memStatsList, memStats)
 	}
 
-	bar3D := charts.NewBar3D()
-	bar3D.SetGlobalOptions(
-		charts.WithTitleOpts(opts.Title{Title: "Memory Stats"}),
-		charts.WithXAxis3DOpts(opts.XAxis3D{Name: "N"}),
-		charts.WithYAxis3DOpts(opts.YAxis3D{Name: "Stat"}),
-		charts.WithZAxis3DOpts(opts.ZAxis3D{Name: "Value"}),
+	var dataPoints []opts.Chart3DData
+
+	for i, memStats := range memStatsList {
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{0, i, memStats.N}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{1, i, memStats.Time}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{2, i, memStats.Alloc}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{3, i, memStats.TotalAlloc}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{4, i, memStats.Sys}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{5, i, memStats.Lookups}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{6, i, memStats.Mallocs}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{7, i, memStats.Frees}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{8, i, memStats.HeapAlloc}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{9, i, memStats.HeapSys}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{10, i, memStats.HeapIdle}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{11, i, memStats.HeapInuse}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{12, i, memStats.HeapReleased}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{13, i, memStats.HeapObjects}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{14, i, memStats.StackInuse}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{15, i, memStats.StackSys}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{16, i, memStats.MSpanInuse}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{17, i, memStats.MSpanSys}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{18, i, memStats.MCacheInuse}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{19, i, memStats.MCacheSys}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{20, i, memStats.BuckHashSys}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{21, i, memStats.GCSys}})
+		dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{22, i, memStats.OtherSys}})
+		// Exlude these values, as they often distort the plots to the point of making them useless
+		//dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{23, i, memStats.NextGC}})
+		//dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{24, i, memStats.LastGC}})
+	}
+
+	bar3d := charts.NewBar3D()
+	bar3d.SetGlobalOptions(
+		charts.WithTitleOpts(opts.Title{
+			Title:    "MemStats 3D Bar Chart",
+			Subtitle: "Visualization of Memory Statistics",
+		}),
+		charts.WithVisualMapOpts(opts.VisualMap{
+			Calculable: true,
+			Max:        100, // Adjust based on your data
+			InRange:    &opts.VisualMapInRange{Color: []string{"#313695", "#4575b4", "#74add1", "#abd9e9", "#e0f3f8", "#fee090", "#fdae61", "#f46d43", "#d73027", "#a50026"}},
+		}),
+		charts.WithGrid3DOpts(opts.Grid3D{
+			BoxWidth:  200,
+			BoxDepth:  80,
+			BoxHeight: 50,
+		}),
 	)
 
-	// Initialize a map to hold all data points
-	dataMap := make(map[string][]opts.Chart3DData)
-
-	// Accumulate data points
-	for _, statsList := range memStats {
-		for _, stats := range statsList {
-			v := reflect.ValueOf(stats)
-			typeOfS := v.Type()
-			for i := 1; i < v.NumField(); i++ {
-				fieldName := typeOfS.Field(i).Name
-				dataMap[fieldName] = append(dataMap[fieldName], opts.Chart3DData{Value: []interface{}{stats.N, i, v.Field(i).Interface()}})
-			}
-		}
+	// Setting X and Y axis data
+	xAxisData := []string{
+		"N", "Time", "Alloc", "TotalAlloc", "Sys", "Lookups", "Mallocs", "Frees", "HeapAlloc", "HeapSys",
+		"HeapIdle", "HeapInuse", "HeapReleased", "HeapObjects", "StackInuse", "StackSys", "MSpanInuse",
+		"MSpanSys", "MCacheInuse", "MCacheSys", "BuckHashSys", "GCSys", "OtherSys",
+		/*"NextGC", "LastGC"*/ // Exlude these values, as they often distort the plots to the point of making them useless
+	}
+	yAxisData := make([]string, len(memStatsList))
+	for i := range yAxisData {
+		yAxisData[i] = strconv.Itoa(i)
 	}
 
-	// Add series for each stat
-	for statName, dataPoints := range dataMap {
-		bar3D.AddSeries(statName, dataPoints)
-	}
+	// Adding series with X and Y axis data
+	bar3d.AddSeries("bar3d", dataPoints).
+		SetGlobalOptions(
+			charts.WithXAxis3DOpts(opts.XAxis3D{Data: xAxisData}),
+			charts.WithYAxis3DOpts(opts.YAxis3D{Data: yAxisData}),
+		)
 
-	f, _ := os.Create("bar3d.html")
-	bar3D.Render(f)
+	// Save the chart to a file
+	f, err := os.Create("bar3d.html")
+	if err != nil {
+		log.Fatalf("Failed to create file: %s", err)
+	}
+	if err := bar3d.Render(f); err != nil {
+		log.Fatalf("Failed to render chart: %s", err)
+	}
 
 }
 
@@ -128,7 +186,6 @@ func plotStatsLine() {
 
 	records = records[1:] // Skip the header
 
-	// Using a map where each stat name points to a slice of LineData, holding the N value and the stat value.
 	memStats := make(map[string][]opts.LineData)
 	for _, record := range records {
 		n, err := strconv.Atoi(record[0])
@@ -154,7 +211,7 @@ func plotStatsLine() {
 		typeOfS := v.Type()
 		for i := 1; i < v.NumField(); i++ {
 			fieldName := typeOfS.Field(i).Name
-			memStats[fieldName] = append(memStats[fieldName], opts.LineData{Value: []interface{}{n, v.Field(i).Interface()}})
+			memStats[fieldName] = append(memStats[fieldName], opts.LineData{Value: v.Field(i).Interface()})
 		}
 	}
 
@@ -170,9 +227,7 @@ func plotStatsLine() {
 	}
 
 	f, _ := os.Create("line_chart.html")
-	if err := line.Render(f); err != nil {
-		log.Fatalf("Failed to render chart: %s", err)
-	}
+	line.Render(f)
 }
 
 func recursiveFunction(count int) int {
@@ -297,7 +352,7 @@ func main() {
 
 	debug.SetGCPercent(1)
 	// After running the tests, data is loaded and plotted
-	//plotStatsBar3D()
-	plotStatsLine()
+	plotStatsBar3D()
+	//plotStatsLine()
 
 }
