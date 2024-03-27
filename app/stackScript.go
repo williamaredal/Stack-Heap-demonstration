@@ -123,21 +123,50 @@ func plotStatsBar3D() {
 		//dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{24, i, memStats.LastGC}})
 	}
 
+	// Updates the colour range to use the max value for it's scale
+	var maxValue float64
+	for _, memStats := range memStatsList {
+		// Check each field of memStats and update maxValue if necessary
+		values := []float64{
+			memStats.Alloc, memStats.TotalAlloc, memStats.Sys, memStats.Lookups, memStats.Mallocs,
+			memStats.Frees, memStats.HeapAlloc, memStats.HeapSys, memStats.HeapIdle, memStats.HeapInuse,
+			memStats.HeapReleased, memStats.HeapObjects, memStats.StackInuse, memStats.StackSys,
+			memStats.MSpanInuse, memStats.MSpanSys, memStats.MCacheInuse, memStats.MCacheSys,
+			memStats.BuckHashSys, memStats.GCSys, memStats.OtherSys,
+		}
+
+		for _, v := range values {
+			if v > maxValue {
+				maxValue = v
+			}
+		}
+	}
+
 	bar3d := charts.NewBar3D()
 	bar3d.SetGlobalOptions(
 		charts.WithTitleOpts(opts.Title{
 			Title:    "MemStats 3D Bar Chart",
 			Subtitle: "Visualization of Memory Statistics",
 		}),
+		charts.WithLegendOpts(opts.Legend{
+			Show:   true,
+			Left:   "center",
+			Top:    "bottom",
+			Orient: "horizontal",
+		}),
 		charts.WithVisualMapOpts(opts.VisualMap{
 			Calculable: true,
-			Max:        100, // Adjust based on your data
+			Max:        float32(maxValue),
 			InRange:    &opts.VisualMapInRange{Color: []string{"#313695", "#4575b4", "#74add1", "#abd9e9", "#e0f3f8", "#fee090", "#fdae61", "#f46d43", "#d73027", "#a50026"}},
 		}),
 		charts.WithGrid3DOpts(opts.Grid3D{
 			BoxWidth:  200,
 			BoxDepth:  80,
-			BoxHeight: 50,
+			BoxHeight: 100,
+		}),
+		charts.WithInitializationOpts(opts.Initialization{
+			Width:  "1200px",
+			Height: "650px",
 		}),
 	)
 
@@ -153,12 +182,70 @@ func plotStatsBar3D() {
 		yAxisData[i] = strconv.Itoa(i)
 	}
 
-	// Adding series with X and Y axis data
-	bar3d.AddSeries("bar3d", dataPoints).
-		SetGlobalOptions(
+	// Creates a separate series for each of the stat types
+	for j, statName := range xAxisData {
+		var dataPoints []opts.Chart3DData
+		for i, memStats := range memStatsList {
+			var value float64
+			// Assign the correct value from memStats based on the statName
+			switch j {
+			case 0:
+				value = float64(memStats.N)
+			case 1:
+				value = memStats.Time
+			case 2:
+				value = memStats.Alloc
+			case 3:
+				value = memStats.TotalAlloc
+			case 4:
+				value = memStats.Sys
+			case 5:
+				value = memStats.Lookups
+			case 6:
+				value = memStats.Mallocs
+			case 7:
+				value = memStats.Frees
+			case 8:
+				value = memStats.HeapAlloc
+			case 9:
+				value = memStats.HeapSys
+			case 10:
+				value = memStats.HeapIdle
+			case 11:
+				value = memStats.HeapInuse
+			case 12:
+				value = memStats.HeapReleased
+			case 13:
+				value = memStats.HeapObjects
+			case 14:
+				value = memStats.StackInuse
+			case 15:
+				value = memStats.StackSys
+			case 16:
+				value = memStats.MSpanInuse
+			case 17:
+				value = memStats.MSpanSys
+			case 18:
+				value = memStats.MCacheInuse
+			case 19:
+				value = memStats.MCacheSys
+			case 20:
+				value = memStats.BuckHashSys
+			case 21:
+				value = memStats.GCSys
+			case 22:
+				value = memStats.OtherSys
+			}
+
+			dataPoints = append(dataPoints, opts.Chart3DData{Value: []interface{}{j, i, value}})
+		}
+
+		// Adds series for each stat
+		bar3d.AddSeries(statName, dataPoints).SetGlobalOptions(
 			charts.WithXAxis3DOpts(opts.XAxis3D{Data: xAxisData}),
 			charts.WithYAxis3DOpts(opts.YAxis3D{Data: yAxisData}),
 		)
+	}
 
 	// Save the chart to a file
 	f, err := os.Create("bar3d.html")
