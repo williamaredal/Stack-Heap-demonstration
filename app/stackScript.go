@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"os"
 	"reflect"
 	"runtime"
@@ -317,6 +318,80 @@ func plotStatsLine() {
 	line.Render(f)
 }
 
+// Functions to test
+
+// Linked list insertion
+type Node struct {
+	data int
+	next *Node
+}
+
+type LinkedList struct {
+	head *Node
+}
+
+// InsertAtEnd inserts a new node at the end of the list.
+func (l *LinkedList) InsertAtEnd(data int) {
+	newNode := &Node{data: data}
+	if l.head == nil {
+		l.head = newNode
+		return
+	}
+	current := l.head
+	for current.next != nil {
+		current = current.next
+	}
+	current.next = newNode
+}
+
+// Insert inserts a new node with the given data after the node with target data.
+func (l *LinkedList) InsertAfter(target, data int) {
+	current := l.head
+	for current != nil {
+		if current.data == target {
+			newNode := &Node{data: data, next: current.next}
+			current.next = newNode
+			return
+		}
+		current = current.next
+	}
+}
+
+// createAndModifyLinkedList creates a linked list and modifies it by inserting new elements.
+func createAndModifyLinkedList(n int, elementsToInsert []int) *LinkedList {
+	ll := &LinkedList{}
+
+	// Initially fill the list with integers 0 to n-1
+	for i := 0; i < n; i++ {
+		ll.InsertAtEnd(i)
+	}
+
+	// Inserts numbers at random locations in list (after the number they match in list)
+	for _, elem := range elementsToInsert {
+		ll.InsertAfter(elem, elem)
+	}
+	return ll
+}
+
+// Array insertion
+func createAndModifyArray(n int, elementsToInsert []int) []int {
+	arr := make([]int, n)
+	for i := range arr {
+		arr[i] = i
+	}
+
+	// Finds the element matching the random element to insert
+	for _, elem := range elementsToInsert {
+		for index, arrElem := range arr {
+			if elem == arrElem {
+				arr = append(arr[:index+1], append([]int{elem}, arr[index+1:]...)...)
+			}
+		}
+	}
+	return arr
+}
+
+// Recursive function
 func recursiveFunction(count int) int {
 	if count <= 0 {
 		return 0
@@ -324,6 +399,7 @@ func recursiveFunction(count int) int {
 	return 1 + recursiveFunction(count-1)
 }
 
+// For loop function
 func loopFunction(count int) int {
 	sum := 0
 	for i := 0; i < count; i++ {
@@ -411,22 +487,34 @@ func main() {
 	writeCounter := 0
 
 	// Element depth to test
-	for d := 0; d < 7; d++ {
+	for d := 0; d < 5; d++ {
 		// Run the function with n elements
 		n := int(10 * math.Pow(10, float64(d)))
 
 		// Number of times to test any given element depth
 		for test_i := 0; test_i < 10; test_i++ {
 			startTime := time.Now()
-			result := recursiveFunction(int(n))
+
+			// Operation based tests
+			//result := recursiveFunction(int(n))
 			//result := loopFunction(n)
+
+			// List element based tests
+			setLength := 1
+			setToInsert := []int{}
+			for randI := 0; randI < setLength; randI++ {
+				setToInsert = append(setToInsert, rand.Intn(n))
+			}
+			_ = createAndModifyLinkedList(int(n), setToInsert)
+			//_ = createAndModifyArray(int(n), setToInsert)
+
 			elapsedTime := time.Since(startTime)
 
 			// Call the function to write mem stats to CSV
-			writeMemStatsToCSV(writeCounter, n, elapsedTime.Milliseconds())
+			writeMemStatsToCSV(writeCounter, n, elapsedTime.Microseconds())
 
 			// Displays the results
-			fmt.Printf("Current runtime: %dms\nRecursive depth: %d\nFunction result: %d\n\n", elapsedTime, int(n), result)
+			fmt.Printf("Current runtime: %dmicroseconds\nElement depth: %d\n\n", elapsedTime.Microseconds(), int(n))
 
 			// Runs garbage collection to clear mem-usage before next run
 			runtime.GC()
