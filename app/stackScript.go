@@ -479,6 +479,11 @@ func writeMemStatsToCSV(writeCount int, n int, elapsedTime int64) {
 	}
 }
 
+// Function for getting the name of the executed function
+func GetFunctionName(i interface{}) string {
+	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
+}
+
 func main() {
 	// Turns off automatic garbage collection before tests
 	debug.SetGCPercent(-1)
@@ -514,7 +519,7 @@ func main() {
 			writeMemStatsToCSV(writeCounter, n, elapsedTime.Microseconds())
 
 			// Displays the results
-			fmt.Printf("Current runtime: %dmicroseconds\nElement depth: %d\n\n", elapsedTime.Microseconds(), int(n))
+			fmt.Printf("Current runtime: %dmicroseconds\nElement depth: %d\n\n", elapsedTime.Microseconds(), n)
 
 			// Runs garbage collection to clear mem-usage before next run
 			runtime.GC()
