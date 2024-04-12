@@ -501,8 +501,8 @@ func main() {
 			startTime := time.Now()
 
 			// Operation based tests
-			//result := recursiveFunction(int(n))
-			//result := loopFunction(n)
+			//_ = recursiveFunction(n)
+			//_ = loopFunction(n)
 
 			// List element based tests
 			setLength := 1
